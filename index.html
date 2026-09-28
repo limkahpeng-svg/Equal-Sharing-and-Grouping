@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Equal Sharing and Equal Grouping</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #fef3c7 100%);
+            min-height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .font-heading {
+            font-family: 'Fredoka', cursive;
+        }
+
+        /* Item Grid Card Styles */
+        .item-card {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+        }
+
+        .item-card:hover:not(.grouped) {
+            transform: scale(1.12);
+        }
+
+        .item-card.selected {
+            transform: scale(1.15);
+            animation: pulse-border 1.2s infinite;
+        }
+
+        @keyframes pulse-border {
+            0%, 100% { box-shadow: 0 0 0 4px #3b82f6, 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+            50% { box-shadow: 0 0 0 6px #60a5fa, 0 15px 20px -3px rgba(59, 130, 246, 0.3); }
+        }
+
+        /* Shake animation for incorrect selection */
+        .shake-anim {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+
+        /* Pop animation on selection */
+        .pop-in {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Group Colors Palette */
+        .group-color-1 { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; }
+        .group-color-2 { background-color: #dbeafe; border-color: #3b82f6; color: #1e40af; }
+        .group-color-3 { background-color: #dcfce7; border-color: #22c55e; color: #166534; }
+        .group-color-4 { background-color: #fef3c7; border-color: #f59e0b; color: #92400e; }
+        .group-color-5 { background-color: #f3e8ff; border-color: #a855f7; color: #6b21a8; }
+        .group-color-6 { background-color: #ffe4e6; border-color: #f43f5e; color: #9f1239; }
+        .group-color-7 { background-color: #e0e7ff; border-color: #6366f1; color: #3730a3; }
+        .group-color-8 { background-color: #ccfbf1; border-color: #14b8a6; color: #115e59; }
+        .group-color-9 { background-color: #ffedd5; border-color: #f97316; color: #9a3412; }
+        .group-color-10 { background-color: #f1f5f9; border-color: #64748b; color: #1e293b; }
+
+        .group-badge-1 { background-color: #ef4444; color: white; }
+        .group-badge-2 { background-color: #3b82f6; color: white; }
+        .group-badge-3 { background-color: #22c55e; color: white; }
+        .group-badge-4 { background-color: #f59e0b; color: white; }
+        .group-badge-5 { background-color: #a855f7; color: white; }
+        .group-badge-6 { background-color: #f43f5e; color: white; }
+        .group-badge-7 { background-color: #6366f1; color: white; }
+        .group-badge-8 { background-color: #14b8a6; color: white; }
+        .group-badge-9 { background-color: #f97316; color: white; }
+        .group-badge-10 { background-color: #64748b; color: white; }
+
+        /* Canvas for confetti */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen text-slate-800 pb-10">
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Header Navbar -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-sky-100 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-2xl bg-amber-400 flex items-center justify-center text-white text-xl shadow-md font-heading">
+                    🧩
+                </div>
+                <div>
+                    <h1 class="font-heading text-lg sm:text-xl text-sky-900 leading-tight">Equal Sharing and Equal Grouping</h1>
+                    <p class="text-xs text-sky-600 font-semibold">Primary 1 Math Explorer</p>
+                </div>
+            </div>
+
+            <!-- Score & Audio Controls -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full flex items-center space-x-1.5 shadow-sm">
+                    <span class="text-amber-500 text-base">⭐</span>
+                    <span id="star-count" class="font-heading text-amber-700 font-bold text-sm sm:text-base">0 Stars</span>
+                </div>
+                <button id="audio-toggle-btn" onclick="toggleAudio()" class="w-9 h-9 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center hover:bg-sky-200 transition" title="Toggle Sound">
+                    <i class="fa-solid fa-volume-high" id="audio-icon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 mt-6 flex-grow w-full">
+        
+        <!-- Level Selector Tabs -->
+        <div class="bg-white rounded-3xl p-2 shadow-sm border border-sky-100 mb-5 flex items-center justify-between gap-1 sm:gap-2">
+            <button onclick="changeLevel(1)" id="lvl-btn-1" class="flex-1 py-2.5 px-2 rounded-2xl font-heading font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 bg-sky-500 text-white shadow-md">
+                <span>🌱 Level 1</span>
+                <span class="hidden sm:inline text-[10px] opacity-90">(Guided)</span>
+            </button>
+            <button onclick="changeLevel(2)" id="lvl-btn-2" class="flex-1 py-2.5 px-2 rounded-2xl font-heading font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 text-slate-600 hover:bg-slate-100">
+                <span>🌿 Level 2</span>
+                <span class="hidden sm:inline text-[10px] opacity-90">(Thinker)</span>
+            </button>
+            <button onclick="changeLevel(3)" id="lvl-btn-3" class="flex-1 py-2.5 px-2 rounded-2xl font-heading font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 text-slate-600 hover:bg-slate-100">
+                <span>🚀 Level 3</span>
+                <span class="hidden sm:inline text-[10px] opacity-90">(Master)</span>
+            </button>
+        </div>
+
+        <!-- Level Info Banner -->
+        <div id="level-desc-banner" class="mb-4 px-4 py-2.5 bg-sky-50 border border-sky-200 rounded-2xl text-xs font-bold text-sky-800 flex items-center justify-between">
+            <span id="level-desc-text">🌱 Level 1: Numbers up to 16 with helper count badges & guided target containers.</span>
+            <span id="scaffold-badge" class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-lg text-[10px]">High Scaffolding</span>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="bg-white rounded-2xl p-3 shadow-sm border border-sky-100 mb-6">
+            <div class="flex justify-between items-center text-xs font-bold text-sky-700 mb-1.5">
+                <span id="question-progress-text">Question 1 of 5</span>
+                <span id="mode-badge" class="px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 uppercase tracking-wider text-[10px]">Equal Sharing</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                <div id="progress-bar-fill" class="bg-gradient-to-r from-sky-400 to-blue-600 h-full rounded-full transition-all duration-500" style="width: 20%;"></div>
+            </div>
+        </div>
+
+        <!-- Question Card -->
+        <div class="bg-white rounded-3xl p-5 sm:p-7 shadow-xl border border-sky-100 relative overflow-hidden">
+            
+            <!-- Step Indicator Header -->
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5 flex-wrap gap-2">
+                <h2 id="question-title" class="font-heading text-xl sm:text-2xl text-slate-800 flex items-center gap-2">
+                    <!-- Title injected by JS -->
+                </h2>
+
+                <!-- Steps Pills -->
+                <div class="flex items-center space-x-1 text-xs font-bold">
+                    <div id="step-pill-1" class="px-3 py-1 rounded-full bg-sky-500 text-white shadow-sm transition-all">Step 1: Whole</div>
+                    <i class="fa-solid fa-chevron-right text-slate-300 text-[10px]"></i>
+                    <div id="step-pill-2" class="px-3 py-1 rounded-full bg-slate-100 text-slate-400 transition-all">Step 2: Circle Groups</div>
+                    <i class="fa-solid fa-chevron-right text-slate-300 text-[10px]"></i>
+                    <div id="step-pill-3" class="px-3 py-1 rounded-full bg-slate-100 text-slate-400 transition-all">Step 3: Math Sentence</div>
+                </div>
+            </div>
+
+            <!-- Story Context Box -->
+            <div class="bg-sky-50 border-l-4 border-sky-400 p-4 rounded-r-2xl mb-6">
+                <p id="question-story" class="text-base sm:text-lg text-sky-950 font-medium leading-relaxed">
+                    <!-- Story text injected by JS -->
+                </p>
+            </div>
+
+            <!-- STEP 1 CONTAINER: IDENTIFY THE WHOLE -->
+            <div id="step-1-container" class="space-y-4">
+                <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
+                    <p class="text-amber-900 font-bold text-base mb-2">
+                        🔍 Step 1: What is the <span class="underline decoration-amber-400 font-black">WHOLE</span> (Total number of items)?
+                    </p>
+                    <p id="step-1-subhint" class="text-xs text-amber-700">Count all the items below, then key in the total count using the keypad!</p>
+                </div>
+
+                <!-- Keypad Input Area for Step 1 -->
+                <div class="flex flex-col items-center justify-center gap-3 py-2" id="whole-input-container">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-sm font-bold text-amber-900">Total count:</span>
+                        <div id="whole-input-display" class="text-2xl sm:text-3xl font-heading font-bold text-amber-900 bg-white border-2 border-amber-400 rounded-2xl h-14 min-w-[130px] max-w-[180px] flex items-center justify-center px-4 shadow-inner">
+                            <span id="whole-input-text" class="text-amber-900 hidden"></span>
+                            <span id="whole-input-placeholder" class="text-amber-300 font-normal text-xl">Key in...</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 w-full max-w-[260px]">
+                        <button onclick="handleKeypadInput('1')" class="h-12 bg-white border-2 border-amber-200 hover:bg-amber-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-amber-900 shadow-sm transition">1</button>
+                        <button onclick="handleKeypadInput('2')" class="h-12 bg-white border-2 border-amber-200 hover:bg-amber-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-amber-900 shadow-sm transition">2</button>
+                        <button onclick="handleKeypadInput('3')" class="h-12 bg-white border-2 border-amber-200 hover:bg-amber-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-amber-900 shadow-sm transition">3</button>
+                        <button onclick="handleKeypadInput('4')" class="h-12 bg-white border-2 border-amber-200 hover:bg-amber-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-amber-900 shadow-sm transition">4</button>
+                        <button onclick="handleKeypadInput('5')" class="h-12 bg-white border-2 border-amber-200 hover:bg-amber-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-amber-900 shadow-sm transition">5</button>
+                        <button onclick="handleKeypadInput('6')" class="h-12 bg-white border-2 border-amber-200 hover:bg-amber-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-amber-900 shadow-sm transition">6</button>
+                        <button onclick="handleKeypadInput('7')" class="h-12 bg-white border-2 border-amber-200 hover:bg-amber-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-amber-900 shadow-sm transition">7</button>
+                        <button onclick="handleKeypadInput('8')" class="h-12 bg-white border-2 border-amber-200 hover:bg-amber-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-amber-900 shadow-sm transition">8</button>
+                        <button onclick="handleKeypadInput('9')" class="h-12 bg-white border-2 border-amber-200 hover:bg-amber-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-amber-900 shadow-sm transition">9</button>
+                        <button onclick="handleKeypadInput('clear')" class="h-12 bg-rose-100 border-2 border-rose-200 hover:bg-rose-200 active:scale-95 rounded-2xl font-heading font-bold text-base text-rose-800 shadow-sm transition flex items-center justify-center">C</button>
+                        <button onclick="handleKeypadInput('0')" class="h-12 bg-white border-2 border-amber-200 hover:bg-amber-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-amber-900 shadow-sm transition">0</button>
+                        <button onclick="handleKeypadInput('backspace')" class="h-12 bg-amber-100 border-2 border-amber-200 hover:bg-amber-200 active:scale-95 rounded-2xl font-heading font-bold text-lg text-amber-900 shadow-sm transition flex items-center justify-center">⌫</button>
+                    </div>
+
+                    <button id="submit-step-1-btn" onclick="checkStep1Answer()" class="mt-2 w-full max-w-[260px] py-3 rounded-2xl font-heading font-bold text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-md hover:shadow-lg transition active:scale-95 flex items-center justify-center space-x-2">
+                        <span>Check Answer</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+
+                <div id="step-1-feedback" class="hidden p-3 rounded-xl text-center text-sm font-bold bg-rose-100 border border-rose-300 text-rose-800 transition-all pop-in"></div>
+            </div>
+
+            <!-- STEP 2 CONTAINER: INTERACTIVE CIRCLING -->
+            <div id="step-2-container" class="space-y-5 hidden">
+                <div id="step-2-prompt-box" class="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 text-center">
+                    <p id="step-2-prompt-text" class="text-indigo-900 font-bold text-base sm:text-lg">
+                        <!-- Instructions injected by JS -->
+                    </p>
+                    <p class="text-xs text-indigo-600 mt-1">
+                        💡 <span class="font-semibold">How to play:</span> Click on items to select them, then click <span class="bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded font-bold">Circle Group</span> below or press <span class="bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded font-bold">ENTER</span>!
+                    </p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-inner">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Selected:</span>
+                        <span id="selected-count-badge" class="px-3 py-1 bg-blue-600 text-white rounded-full font-heading font-bold text-sm shadow-sm">
+                            0 items
+                        </span>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <button id="reset-selection-btn" onclick="clearSelection()" class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 transition flex items-center space-x-1">
+                            <i class="fa-solid fa-rotate-left"></i>
+                            <span>Clear</span>
+                        </button>
+                        <button id="enter-group-btn" onclick="formGroupFromSelection()" class="px-5 py-2.5 rounded-xl font-heading font-bold text-sm bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all transform active:scale-95 flex items-center space-x-2">
+                            <span>Circle Group</span>
+                            <span class="bg-white/20 px-2 py-0.5 rounded text-xs">⏎ ENTER</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="target-containers-scaffold" class="hidden grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs font-bold text-amber-900">
+                    <!-- Dynamic containers injected in Level 1 -->
+                </div>
+
+                <div id="step-2-feedback" class="hidden p-3 rounded-xl text-center text-sm font-bold transition-all"></div>
+            </div>
+
+            <!-- PICTORIAL ITEM GRID -->
+            <div class="my-6">
+                <div class="flex justify-between items-center mb-2 px-1">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Pictorial Item Array</span>
+                    <span id="groups-formed-tracker" class="text-xs font-bold text-indigo-600 hidden">Groups Formed: 0 / 0</span>
+                </div>
+                
+                <div id="item-grid" class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-4 sm:p-6 flex flex-wrap justify-center items-center gap-2.5 sm:gap-3.5 min-h-[220px]">
+                    <!-- Items rendered dynamically -->
+                </div>
+            </div>
+
+            <!-- STEP 3 CONTAINER: COMPLETE THE MATH SENTENCE -->
+            <div id="step-3-container" class="space-y-5 hidden">
+                <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
+                    <p class="text-emerald-900 font-bold text-base sm:text-lg">
+                        🎉 Great job circling! Step 3: Complete the Math Sentence.
+                    </p>
+                    <p class="text-xs text-emerald-700 mt-0.5">Tap on a box below and use the keypad to fill in the missing numbers.</p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 text-slate-800">
+                    <div class="flex flex-wrap items-center gap-2 text-base sm:text-lg font-medium leading-loose">
+                        <span>There are</span>
+                        <button id="slot-total-btn" onclick="selectStep3Slot(1)" class="min-w-[75px] h-12 px-3 bg-white border-2 border-indigo-400 rounded-xl font-heading font-bold text-xl text-indigo-700 shadow-sm flex items-center justify-center transition-all ring-2 ring-indigo-300">
+                            <span id="slot-total-text" class="text-indigo-900 hidden"></span>
+                            <span id="slot-total-placeholder" class="text-indigo-300 text-lg">?</span>
+                        </button>
+                        <span id="sentence-item-label">items</span>
+                        <span>in total.</span>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 text-base sm:text-lg font-medium leading-loose">
+                        <span>We made</span>
+                        <button id="slot-groups-btn" onclick="selectStep3Slot(2)" class="min-w-[75px] h-12 px-3 bg-white border-2 border-indigo-200 hover:border-indigo-400 rounded-xl font-heading font-bold text-xl text-indigo-700 shadow-sm flex items-center justify-center transition-all">
+                            <span id="slot-groups-text" class="text-indigo-900 hidden"></span>
+                            <span id="slot-groups-placeholder" class="text-indigo-300 text-lg">?</span>
+                        </button>
+                        <span>equal groups.</span>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 text-base sm:text-lg font-medium leading-loose">
+                        <span>There are</span>
+                        <button id="slot-per-group-btn" onclick="selectStep3Slot(3)" class="min-w-[75px] h-12 px-3 bg-white border-2 border-indigo-200 hover:border-indigo-400 rounded-xl font-heading font-bold text-xl text-indigo-700 shadow-sm flex items-center justify-center transition-all">
+                            <span id="slot-per-group-text" class="text-indigo-900 hidden"></span>
+                            <span id="slot-per-group-placeholder" class="text-indigo-300 text-lg">?</span>
+                        </button>
+                        <span>items in each group</span>
+                        <span id="groups-of-phrase" class="bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-lg text-sm font-bold border border-amber-300">
+                            ( Groups of ___ )
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-center justify-center gap-2 py-2">
+                    <p id="step3-keypad-hint" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Keying into: Total items</p>
+                    <div class="grid grid-cols-3 gap-2 w-full max-w-[260px]">
+                        <button onclick="handleStep3KeypadInput('1')" class="h-12 bg-white border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-emerald-900 shadow-sm transition">1</button>
+                        <button onclick="handleStep3KeypadInput('2')" class="h-12 bg-white border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-emerald-900 shadow-sm transition">2</button>
+                        <button onclick="handleStep3KeypadInput('3')" class="h-12 bg-white border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-emerald-900 shadow-sm transition">3</button>
+                        <button onclick="handleStep3KeypadInput('4')" class="h-12 bg-white border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-emerald-900 shadow-sm transition">4</button>
+                        <button onclick="handleStep3KeypadInput('5')" class="h-12 bg-white border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-emerald-900 shadow-sm transition">5</button>
+                        <button onclick="handleStep3KeypadInput('6')" class="h-12 bg-white border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-emerald-900 shadow-sm transition">6</button>
+                        <button onclick="handleStep3KeypadInput('7')" class="h-12 bg-white border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-emerald-900 shadow-sm transition">7</button>
+                        <button onclick="handleStep3KeypadInput('8')" class="h-12 bg-white border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-emerald-900 shadow-sm transition">8</button>
+                        <button onclick="handleStep3KeypadInput('9')" class="h-12 bg-white border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-emerald-900 shadow-sm transition">9</button>
+                        <button onclick="handleStep3KeypadInput('clear')" class="h-12 bg-rose-100 border-2 border-rose-200 hover:bg-rose-200 active:scale-95 rounded-2xl font-heading font-bold text-base text-rose-800 shadow-sm transition flex items-center justify-center">C</button>
+                        <button onclick="handleStep3KeypadInput('0')" class="h-12 bg-white border-2 border-emerald-200 hover:bg-emerald-100 active:scale-95 rounded-2xl font-heading font-bold text-xl text-emerald-900 shadow-sm transition">0</button>
+                        <button onclick="handleStep3KeypadInput('backspace')" class="h-12 bg-emerald-100 border-2 border-emerald-200 hover:bg-emerald-200 active:scale-95 rounded-2xl font-heading font-bold text-lg text-emerald-900 shadow-sm transition flex items-center justify-center">⌫</button>
+                    </div>
+                </div>
+
+                <div id="step-3-feedback" class="hidden p-3 rounded-xl text-center text-sm font-bold bg-rose-100 border border-rose-300 text-rose-800 transition-all pop-in"></div>
+
+                <div class="flex justify-center pt-2">
+                    <button id="submit-sentence-btn" onclick="checkStep3Answer()" class="w-full sm:w-auto px-8 py-3.5 rounded-2xl font-heading font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all transform active:scale-95 flex items-center justify-center space-x-2">
+                        <span>Check My Answer</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="completion-banner" class="hidden mt-6 p-5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl text-white text-center shadow-lg space-y-3 pop-in">
+                <div class="text-3xl">🌟 Awesome Job! 🌟</div>
+                <p id="completion-message" class="text-sm sm:text-base font-medium">You completed this question perfectly!</p>
+                <button id="next-question-btn" onclick="goToNextQuestion()" class="px-8 py-3 bg-white text-emerald-800 font-heading font-bold text-base rounded-xl shadow hover:bg-emerald-50 transition transform active:scale-95">
+                    Next Question ➔
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Game Completed Overlay Modal -->
+    <div id="game-over-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 text-center space-y-5 shadow-2xl pop-in border-4 border-amber-300">
+            <div class="text-5xl animate-bounce">🏆</div>
+            <h2 class="font-heading text-2xl sm:text-3xl text-sky-900">Level Master!</h2>
+            <p id="game-over-desc" class="text-slate-600 text-sm sm:text-base">
+                You successfully solved all Primary 1 Equal Sharing and Equal Grouping questions!
+            </p>
+            
+            <div class="bg-amber-50 rounded-2xl p-4 border border-amber-200 space-y-2">
+                <div class="flex justify-between items-center text-sm font-bold text-amber-900">
+                    <span>Stars Earned:</span>
+                    <span id="final-stars-text" class="text-lg text-amber-600">⭐ 5 / 5</span>
+                </div>
+                <div class="flex justify-between items-center text-sm font-bold text-amber-900">
+                    <span>Questions Solved:</span>
+                    <span id="final-solved-text" class="text-lg text-emerald-600">5 / 5</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <button id="next-level-modal-btn" onclick="advanceToNextLevel()" class="w-full py-3.5 rounded-2xl font-heading font-bold text-base bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg transition active:scale-95">
+                    Advance to Next Level 🚀
+                </button>
+                <button id="restart-game-btn" onclick="restartLevel()" class="w-full py-3 rounded-2xl font-heading font-bold text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+                    Play Level Again 🔄
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           1. QUESTION DATASETS (Level 1, Level 2, Level 3)
+           ========================================================================== */
+        const LEVEL_1_QUESTIONS = [
+            {
+                type: 'sharing',
+                title: 'Question 1: Sharing Apples',
+                story: '🍎 Share 8 apples equally among 2 children.',
+                itemName: 'apples',
+                itemEmoji: '🍎',
+                totalItems: 8,
+                targetGroups: 2,
+                itemsPerGroup: 4
+            },
+            {
+                type: 'grouping',
+                title: 'Question 2: Grouping Stars',
+                story: '⭐ Put 12 stars into groups of 3.',
+                itemName: 'stars',
+                itemEmoji: '⭐',
+                totalItems: 12,
+                targetGroups: 4,
+                itemsPerGroup: 3
+            },
+            {
+                type: 'sharing',
+                title: 'Question 3: Sharing Cookies',
+                story: '🍪 Share 10 cookies equally between 2 plates.',
+                itemName: 'cookies',
+                itemEmoji: '🍪',
+                totalItems: 10,
+                targetGroups: 2,
+                itemsPerGroup: 5
+            },
+            {
+                type: 'grouping',
+                title: 'Question 4: Grouping Fish',
+                story: '🐟 Put 15 fish into groups of 5.',
+                itemName: 'fish',
+                itemEmoji: '🐟',
+                totalItems: 15,
+                targetGroups: 3,
+                itemsPerGroup: 5
+            },
+            {
+                type: 'sharing',
+                title: 'Question 5: Sharing Balloons',
+                story: '🎈 Share 16 balloons equally among 4 friends.',
+                itemName: 'balloons',
+                itemEmoji: '🎈',
+                totalItems: 16,
+                targetGroups: 4,
+                itemsPerGroup: 4
+            }
+        ];
+
+        const LEVEL_2_QUESTIONS = [
+            {
+                type: 'grouping',
+                title: 'Question 1: Strawberries in Packs',
+                story: '🍓 Pack 18 strawberries into groups of 3.',
+                itemName: 'strawberries',
+                itemEmoji: '🍓',
+                totalItems: 18,
+                targetGroups: 6,
+                itemsPerGroup: 3
+            },
+            {
+                type: 'sharing',
+                title: 'Question 2: Sharing Pencils',
+                story: '✏️ Share 20 pencils equally among 4 students.',
+                itemName: 'pencils',
+                itemEmoji: '✏️',
+                totalItems: 20,
+                targetGroups: 4,
+                itemsPerGroup: 5
+            },
+            {
+                type: 'grouping',
+                title: 'Question 3: Cupcakes in Boxes',
+                story: '🧁 Pack 24 cupcakes into boxes of 4.',
+                itemName: 'cupcakes',
+                itemEmoji: '🧁',
+                totalItems: 24,
+                targetGroups: 6,
+                itemsPerGroup: 4
+            },
+            {
+                type: 'sharing',
+                title: 'Question 4: Sharing Flowers',
+                story: '🌸 Share 14 flowers equally into 2 vases.',
+                itemName: 'flowers',
+                itemEmoji: '🌸',
+                totalItems: 14,
+                targetGroups: 2,
+                itemsPerGroup: 7
+            },
+            {
+                type: 'grouping',
+                title: 'Question 5: Collecting Gems',
+                story: '💎 Group 21 gems into pouches of 7.',
+                itemName: 'gems',
+                itemEmoji: '💎',
+                totalItems: 21,
+                targetGroups: 3,
+                itemsPerGroup: 7
+            }
+        ];
+
+        const LEVEL_3_QUESTIONS = [
+            {
+                type: 'sharing',
+                title: 'Question 1: Master Sharing Oranges',
+                story: '🍊 Share 24 oranges equally among 3 baskets.',
+                itemName: 'oranges',
+                itemEmoji: '🍊',
+                totalItems: 24,
+                targetGroups: 3,
+                itemsPerGroup: 8
+            },
+            {
+                type: 'grouping',
+                title: 'Question 2: Master Grouping Frogs',
+                story: '🐸 Group 25 frogs onto lily pads of 5.',
+                itemName: 'frogs',
+                itemEmoji: '🐸',
+                totalItems: 25,
+                targetGroups: 5,
+                itemsPerGroup: 5
+            },
+            {
+                type: 'sharing',
+                title: 'Question 3: Master Sharing Books',
+                story: '📚 Share 28 books equally among 4 shelves.',
+                itemName: 'books',
+                itemEmoji: '📚',
+                totalItems: 28,
+                targetGroups: 4,
+                itemsPerGroup: 7
+            },
+            {
+                type: 'grouping',
+                title: 'Question 4: Master Grouping Donuts',
+                story: '🍩 Put 27 donuts into boxes of 3.',
+                itemName: 'donuts',
+                itemEmoji: '🍩',
+                totalItems: 27,
+                targetGroups: 9,
+                itemsPerGroup: 3
+            },
+            {
+                type: 'sharing',
+                title: 'Question 5: Master Sharing Coins',
+                story: '🪙 Share 30 coins equally into 5 piggy banks.',
+                itemName: 'coins',
+                itemEmoji: '🪙',
+                totalItems: 30,
+                targetGroups: 5,
+                itemsPerGroup: 6
+            }
+        ];
+
+        /* ==========================================================================
+           2. GLOBAL GAME STATE VARIABLES
+           ========================================================================== */
+        let currentLevel = 1;
+        let currentQuestionIdx = 0;
+        let starCount = 0;
+        let soundEnabled = true;
+
+        // Current Step State (1: Whole, 2: Grouping, 3: Sentence)
+        let currentStep = 1;
+        let questionAttempt = 0; // Track attempts for displaying hints in Level 3
+
+        // Step 1 Input State
+        let step1InputValue = "";
+
+        // Step 2 Grouping State
+        let selectedItemIndices = []; // Indices of currently tapped items
+        let formedGroups = [];        // Array of arrays containing grouped indices
+
+        // Step 3 Sentence State
+        let activeStep3Slot = 1; // 1: Total, 2: Groups, 3: PerGroup
+        let step3Inputs = {
+            total: "",
+            groups: "",
+            perGroup: ""
+        };
+
+        /* ==========================================================================
+           3. WEB AUDIO SYNTHESIZER (No external audio files needed)
+           ========================================================================== */
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) audioCtx = new AudioContext();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'pop') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'success') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
+                    osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                } else if (type === 'error') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.linearRampToValueAtTime(110, now + 0.18);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+                    osc.start(now);
+                    osc.stop(now + 0.18);
+                } else if (type === 'fanfare') {
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                        const subOsc = ctx.createOscillator();
+                        const subGain = ctx.createGain();
+                        subOsc.type = 'sine';
+                        subOsc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                        subOsc.connect(subGain);
+                        subGain.connect(ctx.destination);
+                        subGain.gain.setValueAtTime(0.2, now + idx * 0.08);
+                        subGain.gain.linearRampToValueAtTime(0.01, now + idx * 0.08 + 0.25);
+                        subOsc.start(now + idx * 0.08);
+                        subOsc.stop(now + idx * 0.08 + 0.25);
+                    });
+                }
+            } catch (e) {
+                console.log("Audio play deferred", e);
+            }
+        }
+
+        function toggleAudio() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('audio-icon');
+            if (soundEnabled) {
+                icon.className = "fa-solid fa-volume-high";
+                playSound('click');
+            } else {
+                icon.className = "fa-solid fa-volume-xmark";
+            }
+        }
+
+        /* ==========================================================================
+           4. LEVEL & QUESTION NAVIGATION
+           ========================================================================== */
+        function getCurrentQuestionSet() {
+            if (currentLevel === 1) return LEVEL_1_QUESTIONS;
+            if (currentLevel === 2) return LEVEL_2_QUESTIONS;
+            return LEVEL_3_QUESTIONS;
+        }
+
+        function changeLevel(lvl) {
+            playSound('click');
+            currentLevel = lvl;
+            currentQuestionIdx = 0;
+            
+            for (let i = 1; i <= 3; i++) {
+                const btn = document.getElementById(`lvl-btn-${i}`);
+                if (i === lvl) {
+                    btn.className = "flex-1 py-2.5 px-2 rounded-2xl font-heading font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 bg-sky-500 text-white shadow-md";
+                } else {
+                    btn.className = "flex-1 py-2.5 px-2 rounded-2xl font-heading font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 text-slate-600 hover:bg-slate-100";
+                }
+            }
+
+            const bannerText = document.getElementById('level-desc-text');
+            const scaffoldBadge = document.getElementById('scaffold-badge');
+
+            if (lvl === 1) {
+                bannerText.innerText = "🌱 Level 1: Numbers up to 16 with helper count badges & guided target containers.";
+                scaffoldBadge.innerText = "High Scaffolding";
+                scaffoldBadge.className = "px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-lg text-[10px]";
+            } else if (lvl === 2) {
+                bannerText.innerText = "🌿 Level 2: Numbers up to 24. Build equal groups independently!";
+                scaffoldBadge.innerText = "Medium Scaffolding";
+                scaffoldBadge.className = "px-2 py-0.5 bg-sky-100 text-sky-800 rounded-lg text-[10px]";
+            } else {
+                bannerText.innerText = "🚀 Level 3: Master Challenge with numbers up to 30. Test your division mastery!";
+                scaffoldBadge.innerText = "Master Challenge";
+                scaffoldBadge.className = "px-2 py-0.5 bg-purple-100 text-purple-800 rounded-lg text-[10px]";
+            }
+
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const questions = getCurrentQuestionSet();
+            const q = questions[currentQuestionIdx];
+
+            currentStep = 1;
+            questionAttempt = 0;
+            step1InputValue = "";
+            selectedItemIndices = [];
+            formedGroups = [];
+            step3Inputs = { total: "", groups: "", perGroup: "" };
+            activeStep3Slot = 1;
+
+            document.getElementById('question-progress-text').innerText = `Question ${currentQuestionIdx + 1} of ${questions.length}`;
+            const fillPct = ((currentQuestionIdx + 1) / questions.length) * 100;
+            document.getElementById('progress-bar-fill').style.width = `${fillPct}%`;
+
+            const modeBadge = document.getElementById('mode-badge');
+            if (q.type === 'sharing') {
+                modeBadge.innerText = "Equal Sharing";
+                modeBadge.className = "px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 uppercase tracking-wider text-[10px]";
+            } else {
+                modeBadge.innerText = "Equal Grouping";
+                modeBadge.className = "px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase tracking-wider text-[10px]";
+            }
+
+            document.getElementById('question-title').innerText = q.title;
+            document.getElementById('question-story').innerText = q.story;
+            document.getElementById('sentence-item-label').innerText = q.itemName;
+
+            // Initial Level 3 prompt hides the group details until an attempt is made
+            const step2Prompt = document.getElementById('step-2-prompt-text');
+            if (currentLevel === 3) {
+                step2Prompt.innerText = `🎯 Circle items to form equal groups.`;
+            } else if (q.type === 'sharing') {
+                step2Prompt.innerText = `🎯 Circle items into ${q.targetGroups} equal groups. (Each group needs ${q.itemsPerGroup} ${q.itemName})`;
+            } else {
+                step2Prompt.innerText = `🎯 Put all ${q.itemName} into groups of ${q.itemsPerGroup}.`;
+            }
+
+            const tracker = document.getElementById('groups-formed-tracker');
+            tracker.innerText = `Groups Formed: 0 / ${q.targetGroups}`;
+            tracker.classList.add('hidden');
+
+            document.getElementById('completion-banner').classList.add('hidden');
+
+            renderLevel1Scaffold(q);
+            updateStepView();
+            renderItemGrid();
+            updateStep1Display();
+            updateStep3Display();
+        }
+
+        function renderLevel1Scaffold(q) {
+            const scaffoldBox = document.getElementById('target-containers-scaffold');
+            scaffoldBox.innerHTML = '';
+            
+            if (currentLevel === 1) {
+                scaffoldBox.classList.remove('hidden');
+                for (let i = 1; i <= q.targetGroups; i++) {
+                    const div = document.createElement('div');
+                    div.id = `scaffold-group-${i}`;
+                    div.className = "p-2 bg-white rounded-xl border-2 border-dashed border-amber-300 text-center flex flex-col items-center justify-center transition-all";
+                    div.innerHTML = `
+                        <span class="text-[10px] uppercase font-extrabold text-amber-700">Group ${i}</span>
+                        <span class="text-xs text-amber-900 font-bold" id="scaffold-count-${i}">0 / ${q.itemsPerGroup} ${q.itemEmoji}</span>
+                    `;
+                    scaffoldBox.appendChild(div);
+                }
+            } else {
+                scaffoldBox.classList.add('hidden');
+            }
+        }
+
+        function updateStepView() {
+            document.getElementById('step-1-container').classList.add('hidden');
+            document.getElementById('step-2-container').classList.add('hidden');
+            document.getElementById('step-3-container').classList.add('hidden');
+
+            for (let i = 1; i <= 3; i++) {
+                const pill = document.getElementById(`step-pill-${i}`);
+                if (i === currentStep) {
+                    pill.className = "px-3 py-1 rounded-full bg-sky-500 text-white shadow-sm transition-all";
+                } else if (i < currentStep) {
+                    pill.className = "px-3 py-1 rounded-full bg-emerald-500 text-white transition-all";
+                } else {
+                    pill.className = "px-3 py-1 rounded-full bg-slate-100 text-slate-400 transition-all";
+                }
+            }
+
+            if (currentStep === 1) {
+                document.getElementById('step-1-container').classList.remove('hidden');
+                document.getElementById('groups-formed-tracker').classList.add('hidden');
+            } else if (currentStep === 2) {
+                document.getElementById('step-2-container').classList.remove('hidden');
+                document.getElementById('groups-formed-tracker').classList.remove('hidden');
+            } else if (currentStep === 3) {
+                document.getElementById('step-3-container').classList.remove('hidden');
+                document.getElementById('groups-formed-tracker').classList.remove('hidden');
+            }
+        }
+
+        /* ==========================================================================
+           5. PICTORIAL ITEM GRID RENDERING & SELECTION
+           ========================================================================== */
+        function renderItemGrid() {
+            const q = getCurrentQuestionSet()[currentQuestionIdx];
+            const grid = document.getElementById('item-grid');
+            grid.innerHTML = '';
+
+            for (let i = 0; i < q.totalItems; i++) {
+                const isSelected = selectedItemIndices.includes(i);
+                
+                let groupNum = -1;
+                for (let g = 0; g < formedGroups.length; g++) {
+                    if (formedGroups[g].includes(i)) {
+                        groupNum = g + 1;
+                        break;
+                    }
+                }
+
+                const card = document.createElement('div');
+                card.dataset.index = i;
+
+                let baseClasses = "item-card relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex flex-col items-center justify-center border-2 shadow-sm font-heading select-none ";
+
+                if (groupNum > 0) {
+                    baseClasses += `grouped group-color-${groupNum} opacity-95 scale-95 border-solid`;
+                } else if (isSelected) {
+                    baseClasses += "selected bg-blue-100 border-blue-500 text-blue-900";
+                } else {
+                    baseClasses += "bg-white border-slate-200 hover:border-sky-300 text-slate-800";
+                }
+
+                card.className = baseClasses;
+
+                const helperBadge = (currentLevel === 1) 
+                    ? `<span class="absolute top-0.5 left-1 text-[9px] font-bold text-slate-400 select-none">${i + 1}</span>` 
+                    : '';
+
+                const groupBadge = (groupNum > 0)
+                    ? `<span class="absolute -top-2 -right-2 px-1.5 py-0.5 rounded-full text-[9px] font-black group-badge-${groupNum} shadow-sm">G${groupNum}</span>`
+                    : '';
+
+                card.innerHTML = `
+                    ${helperBadge}
+                    ${groupBadge}
+                    <span class="text-2xl sm:text-3xl pointer-events-none">${q.itemEmoji}</span>
+                `;
+
+                card.onclick = () => handleItemClick(i);
+                grid.appendChild(card);
+            }
+        }
+
+        function handleItemClick(index) {
+            if (currentStep !== 2) return;
+
+            for (let g = 0; g < formedGroups.length; g++) {
+                if (formedGroups[g].includes(index)) return;
+            }
+
+            playSound('pop');
+
+            if (selectedItemIndices.includes(index)) {
+                selectedItemIndices = selectedItemIndices.filter(idx => idx !== index);
+            } else {
+                selectedItemIndices.push(index);
+            }
+
+            document.getElementById('selected-count-badge').innerText = `${selectedItemIndices.length} item${selectedItemIndices.length === 1 ? '' : 's'}`;
+            renderItemGrid();
+        }
+
+        function clearSelection() {
+            playSound('click');
+            selectedItemIndices = [];
+            document.getElementById('selected-count-badge').innerText = `0 items`;
+            renderItemGrid();
+        }
+
+        /* ==========================================================================
+           6. STEP 1: IDENTIFY THE WHOLE LOGIC
+           ========================================================================== */
+        function handleKeypadInput(val) {
+            playSound('click');
+            if (val === 'clear') {
+                step1InputValue = "";
+            } else if (val === 'backspace') {
+                step1InputValue = step1InputValue.slice(0, -1);
+            } else {
+                if (step1InputValue.length < 2) {
+                    step1InputValue += val;
+                }
+            }
+            updateStep1Display();
+        }
+
+        function updateStep1Display() {
+            const textEl = document.getElementById('whole-input-text');
+            const placeholderEl = document.getElementById('whole-input-placeholder');
+
+            if (step1InputValue !== "") {
+                textEl.innerText = step1InputValue;
+                textEl.classList.remove('hidden');
+                placeholderEl.classList.add('hidden');
+            } else {
+                textEl.classList.add('hidden');
+                placeholderEl.classList.remove('hidden');
+            }
+        }
+
+        function checkStep1Answer() {
+            const q = getCurrentQuestionSet()[currentQuestionIdx];
+            const feedbackEl = document.getElementById('step-1-feedback');
+            const userAns = parseInt(step1InputValue, 10);
+
+            if (isNaN(userAns)) {
+                playSound('error');
+                feedbackEl.innerText = "⚠️ Please key in a number first!";
+                feedbackEl.className = "p-3 rounded-xl text-center text-sm font-bold bg-amber-100 border border-amber-300 text-amber-900 transition-all pop-in";
+                feedbackEl.classList.remove('hidden');
+                return;
+            }
+
+            if (userAns === q.totalItems) {
+                playSound('success');
+                feedbackEl.innerText = `🎉 Correct! There are ${q.totalItems} ${q.itemName} in total. Now let's circle them into groups!`;
+                feedbackEl.className = "p-3 rounded-xl text-center text-sm font-bold bg-emerald-100 border border-emerald-300 text-emerald-900 transition-all pop-in";
+                feedbackEl.classList.remove('hidden');
+
+                setTimeout(() => {
+                    feedbackEl.classList.add('hidden');
+                    currentStep = 2;
+                    updateStepView();
+                }, 1200);
+            } else {
+                playSound('error');
+                const displayBox = document.getElementById('whole-input-display');
+                displayBox.classList.add('shake-anim');
+                setTimeout(() => displayBox.classList.remove('shake-anim'), 400);
+
+                feedbackEl.innerText = `❌ Not quite! Count each ${q.itemEmoji} carefully. Try again!`;
+                feedbackEl.className = "p-3 rounded-xl text-center text-sm font-bold bg-rose-100 border border-rose-300 text-rose-800 transition-all pop-in";
+                feedbackEl.classList.remove('hidden');
+            }
+        }
+
+        /* ==========================================================================
+           7. STEP 2: CIRCLING GROUPS LOGIC
+           ========================================================================== */
+        function formGroupFromSelection() {
+            const q = getCurrentQuestionSet()[currentQuestionIdx];
+
+            if (selectedItemIndices.length === 0) {
+                playSound('error');
+                showStep2Feedback("⚠️ Tap on items to select them first!", "amber");
+                return;
+            }
+
+            if (selectedItemIndices.length !== q.itemsPerGroup) {
+                playSound('error');
+                questionAttempt++;
+
+                const grid = document.getElementById('item-grid');
+                grid.classList.add('shake-anim');
+                setTimeout(() => grid.classList.remove('shake-anim'), 400);
+
+                if (currentLevel === 3) {
+                    // Update header prompt to reveal exact group target as requested
+                    const step2Prompt = document.getElementById('step-2-prompt-text');
+                    step2Prompt.innerText = `🎯 Circle items to make ${q.targetGroups} equal groups.`;
+
+                    showStep2Feedback(`❌ Not quite! 💡 Hint: You need to circle ${q.itemsPerGroup} ${q.itemName} to make ${q.targetGroups} equal groups. You selected ${selectedItemIndices.length}.`, "rose");
+                } else if (q.type === 'sharing') {
+                    showStep2Feedback(`❌ Each of the ${q.targetGroups} equal groups must have exactly ${q.itemsPerGroup} ${q.itemName}. You selected ${selectedItemIndices.length}.`, "rose");
+                } else {
+                    showStep2Feedback(`❌ Groups must be made of ${q.itemsPerGroup} ${q.itemName} each. You selected ${selectedItemIndices.length}.`, "rose");
+                }
+                return;
+            }
+
+            playSound('success');
+            formedGroups.push([...selectedItemIndices]);
+            selectedItemIndices = [];
+            document.getElementById('selected-count-badge').innerText = `0 items`;
+
+            if (currentLevel === 1) {
+                const groupIdx = formedGroups.length;
+                const scaffoldEl = document.getElementById(`scaffold-count-${groupIdx}`);
+                const scaffoldBox = document.getElementById(`scaffold-group-${groupIdx}`);
+                if (scaffoldEl && scaffoldBox) {
+                    scaffoldEl.innerText = `${q.itemsPerGroup} / ${q.itemsPerGroup} ${q.itemEmoji} ✅`;
+                    scaffoldBox.className = "p-2 bg-emerald-100 rounded-xl border-2 border-emerald-400 text-center flex flex-col items-center justify-center transition-all pop-in text-emerald-900";
+                }
+            }
+
+            const tracker = document.getElementById('groups-formed-tracker');
+            tracker.innerText = `Groups Formed: ${formedGroups.length} / ${q.targetGroups}`;
+
+            showStep2Feedback(`✨ Group ${formedGroups.length} formed! (${q.itemsPerGroup} ${q.itemName})`, "emerald");
+            renderItemGrid();
+
+            if (formedGroups.length === q.targetGroups) {
+                setTimeout(() => {
+                    playSound('fanfare');
+                    showStep2Feedback(`🎉 Fantastic! All ${q.targetGroups} equal groups are formed! Moving to Step 3...`, "emerald");
+
+                    setTimeout(() => {
+                        document.getElementById('step-2-feedback').classList.add('hidden');
+                        currentStep = 3;
+                        updateStepView();
+                        updateStep3Display();
+                    }, 1400);
+                }, 400);
+            }
+        }
+
+        function showStep2Feedback(msg, color) {
+            const el = document.getElementById('step-2-feedback');
+            el.innerText = msg;
+            if (color === "emerald") {
+                el.className = "p-3 rounded-xl text-center text-sm font-bold bg-emerald-100 border border-emerald-300 text-emerald-900 transition-all pop-in";
+            } else if (color === "rose") {
+                el.className = "p-3 rounded-xl text-center text-sm font-bold bg-rose-100 border border-rose-300 text-rose-800 transition-all pop-in";
+            } else {
+                el.className = "p-3 rounded-xl text-center text-sm font-bold bg-amber-100 border border-amber-300 text-amber-900 transition-all pop-in";
+            }
+            el.classList.remove('hidden');
+        }
+
+        /* ==========================================================================
+           8. STEP 3: COMPLETE MATH SENTENCE LOGIC
+           ========================================================================== */
+        function selectStep3Slot(slotNum) {
+            playSound('click');
+            activeStep3Slot = slotNum;
+
+            const btn1 = document.getElementById('slot-total-btn');
+            const btn2 = document.getElementById('slot-groups-btn');
+            const btn3 = document.getElementById('slot-per-group-btn');
+            const hint = document.getElementById('step3-keypad-hint');
+
+            [btn1, btn2, btn3].forEach(btn => {
+                btn.className = "min-w-[75px] h-12 px-3 bg-white border-2 border-indigo-200 hover:border-indigo-400 rounded-xl font-heading font-bold text-xl text-indigo-700 shadow-sm flex items-center justify-center transition-all";
+            });
+
+            if (slotNum === 1) {
+                btn1.className = "min-w-[75px] h-12 px-3 bg-white border-2 border-indigo-500 rounded-xl font-heading font-bold text-xl text-indigo-700 shadow-sm flex items-center justify-center transition-all ring-2 ring-indigo-300";
+                hint.innerText = "Keying into: Total items";
+            } else if (slotNum === 2) {
+                btn2.className = "min-w-[75px] h-12 px-3 bg-white border-2 border-indigo-500 rounded-xl font-heading font-bold text-xl text-indigo-700 shadow-sm flex items-center justify-center transition-all ring-2 ring-indigo-300";
+                hint.innerText = "Keying into: Equal groups";
+            } else {
+                btn3.className = "min-w-[75px] h-12 px-3 bg-white border-2 border-indigo-500 rounded-xl font-heading font-bold text-xl text-indigo-700 shadow-sm flex items-center justify-center transition-all ring-2 ring-indigo-300";
+                hint.innerText = "Keying into: Items in each group";
+            }
+        }
+
+        function handleStep3KeypadInput(val) {
+            playSound('click');
+            let key = 'total';
+            if (activeStep3Slot === 2) key = 'groups';
+            if (activeStep3Slot === 3) key = 'perGroup';
+
+            if (val === 'clear') {
+                step3Inputs[key] = "";
+            } else if (val === 'backspace') {
+                step3Inputs[key] = step3Inputs[key].slice(0, -1);
+            } else {
+                if (step3Inputs[key].length < 2) {
+                    step3Inputs[key] += val;
+                }
+            }
+            updateStep3Display();
+        }
+
+        function updateStep3Display() {
+            const tText = document.getElementById('slot-total-text');
+            const tHold = document.getElementById('slot-total-placeholder');
+            if (step3Inputs.total !== "") {
+                tText.innerText = step3Inputs.total;
+                tText.classList.remove('hidden');
+                tHold.classList.add('hidden');
+            } else {
+                tText.classList.add('hidden');
+                tHold.classList.remove('hidden');
+            }
+
+            const gText = document.getElementById('slot-groups-text');
+            const gHold = document.getElementById('slot-groups-placeholder');
+            if (step3Inputs.groups !== "") {
+                gText.innerText = step3Inputs.groups;
+                gText.classList.remove('hidden');
+                gHold.classList.add('hidden');
+            } else {
+                gText.classList.add('hidden');
+                gHold.classList.remove('hidden');
+            }
+
+            const pText = document.getElementById('slot-per-group-text');
+            const pHold = document.getElementById('slot-per-group-placeholder');
+            const phrase = document.getElementById('groups-of-phrase');
+
+            if (step3Inputs.perGroup !== "") {
+                pText.innerText = step3Inputs.perGroup;
+                pText.classList.remove('hidden');
+                pHold.classList.add('hidden');
+            } else {
+                pText.classList.add('hidden');
+                pHold.classList.remove('hidden');
+            }
+
+            phrase.innerText = `( ${step3Inputs.groups || '?'} groups of ${step3Inputs.perGroup || '?'} )`;
+        }
+
+        function checkStep3Answer() {
+            const q = getCurrentQuestionSet()[currentQuestionIdx];
+            const feedbackEl = document.getElementById('step-3-feedback');
+
+            const valTotal = parseInt(step3Inputs.total, 10);
+            const valGroups = parseInt(step3Inputs.groups, 10);
+            const valPerGroup = parseInt(step3Inputs.perGroup, 10);
+
+            if (isNaN(valTotal) || isNaN(valGroups) || isNaN(valPerGroup)) {
+                playSound('error');
+                feedbackEl.innerText = "⚠️ Please fill in all 3 missing numbers first!";
+                feedbackEl.className = "p-3 rounded-xl text-center text-sm font-bold bg-amber-100 border border-amber-300 text-amber-900 transition-all pop-in";
+                feedbackEl.classList.remove('hidden');
+                return;
+            }
+
+            if (valTotal === q.totalItems && valGroups === q.targetGroups && valPerGroup === q.itemsPerGroup) {
+                playSound('fanfare');
+                triggerConfetti();
+
+                feedbackEl.classList.add('hidden');
+                starCount++;
+                document.getElementById('star-count').innerText = `${starCount} Stars`;
+
+                const banner = document.getElementById('completion-banner');
+                const message = document.getElementById('completion-message');
+                message.innerText = `Outstanding! There are ${q.totalItems} ${q.itemName} in total. That makes ${q.targetGroups} equal groups of ${q.itemsPerGroup}!`;
+                banner.classList.remove('hidden');
+                banner.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                playSound('error');
+                feedbackEl.innerText = `❌ Let's check: Total = ${q.totalItems}, Groups = ${q.targetGroups}, Items per group = ${q.itemsPerGroup}. Adjust your numbers!`;
+                feedbackEl.className = "p-3 rounded-xl text-center text-sm font-bold bg-rose-100 border border-rose-300 text-rose-800 transition-all pop-in";
+                feedbackEl.classList.remove('hidden');
+            }
+        }
+
+        function goToNextQuestion() {
+            playSound('click');
+            const questions = getCurrentQuestionSet();
+
+            if (currentQuestionIdx < questions.length - 1) {
+                currentQuestionIdx++;
+                loadQuestion();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                showGameOverModal();
+            }
+        }
+
+        function showGameOverModal() {
+            playSound('fanfare');
+            triggerConfetti();
+            const modal = document.getElementById('game-over-modal');
+            const starsText = document.getElementById('final-stars-text');
+            const solvedText = document.getElementById('final-solved-text');
+            const nextLvlBtn = document.getElementById('next-level-modal-btn');
+
+            starsText.innerText = `⭐ ${starCount} Stars`;
+            solvedText.innerText = `5 / 5 Questions`;
+
+            if (currentLevel < 3) {
+                nextLvlBtn.classList.remove('hidden');
+            } else {
+                nextLvlBtn.classList.add('hidden');
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function advanceToNextLevel() {
+            document.getElementById('game-over-modal').classList.add('hidden');
+            if (currentLevel < 3) {
+                changeLevel(currentLevel + 1);
+            } else {
+                changeLevel(1);
+            }
+        }
+
+        function restartLevel() {
+            document.getElementById('game-over-modal').classList.add('hidden');
+            loadQuestion();
+        }
+
+        /* ==========================================================================
+           9. CONFETTI ANIMATION ENGINE
+           ========================================================================== */
+        const confettiCanvas = document.getElementById('confetti-canvas');
+        const ctx = confettiCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function triggerConfetti() {
+            particles = [];
+            const colors = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#ec4899'];
+            for (let i = 0; i < 90; i++) {
+                particles.push({
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() - 0.7) * 16,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    size: Math.random() * 8 + 4,
+                    rotation: Math.random() * 360,
+                    rotationSpeed: (Math.random() - 0.5) * 10
+                });
+            }
+            requestAnimationFrame(updateConfetti);
+        }
+
+        function updateConfetti() {
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            particles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3;
+                p.rotation += p.rotationSpeed;
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate((p.rotation * Math.PI) / 180);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                ctx.restore();
+
+                if (p.y > confettiCanvas.height) {
+                    particles.splice(idx, 1);
+                }
+            });
+
+            if (particles.length > 0) {
+                requestAnimationFrame(updateConfetti);
+            }
+        }
+
+        /* ==========================================================================
+           10. KEYBOARD SHORTCUT LISTENERS
+           ========================================================================== */
+        window.addEventListener('keydown', (e) => {
+            if (e.key >= '0' && e.key <= '9') {
+                if (currentStep === 1) handleKeypadInput(e.key);
+                if (currentStep === 3) handleStep3KeypadInput(e.key);
+            } else if (e.key === 'Backspace') {
+                if (currentStep === 1) handleKeypadInput('backspace');
+                if (currentStep === 3) handleStep3KeypadInput('backspace');
+            } else if (e.key === 'c' || e.key === 'C') {
+                if (currentStep === 1) handleKeypadInput('clear');
+                if (currentStep === 3) handleStep3KeypadInput('clear');
+            } else if (e.key === 'Enter') {
+                if (currentStep === 1) checkStep1Answer();
+                else if (currentStep === 2) formGroupFromSelection();
+                else if (currentStep === 3) checkStep3Answer();
+            }
+        });
+
+        // Initialize application on window load
+        window.onload = function() {
+            loadQuestion();
+        };
+    </script>
+</body>
+</html>
